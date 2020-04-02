@@ -230,6 +230,15 @@ class moduleForm(QtWidgets.QWidget):
         self.requestNewWidth()
         self.reSize()
 
+    def setStartTime(self):
+        start = self.sbStartTime.value()
+        for ii in range(self.num_analogLines):
+            self.analogLines[ii].setStartTime(start)
+        for ii in range(self.num_digitalLines):
+            self.digitalLines[ii].setStartTime(start)
+        for ii in range(self.num_networkLines):
+            self.networkLines[ii].setStartTime(start)
+
     def requestNewWidth(self):
         max_width = 0
         for ii in range(self.num_analogLines):

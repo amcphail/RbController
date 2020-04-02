@@ -25,7 +25,7 @@ from Either import *
 class EDRE_Interface(object):
     def __init__(self):
         
-        self.fifo = ctypes.cdll.LoadLibrary('/home/lab/mydata/Programming/RBController/fifo.so')
+        self.fifo = ctypes.cdll.LoadLibrary('./fifo.so')
         
         print(self.fifo)
         
