@@ -186,7 +186,7 @@ class Optimiser:
         self.nn_trials = []
         self.nn_fitnesses = []
         
-        self.active_trial = -1
+        self.active_trial = 1
         
         if filename:
             self.loadFile(filename)
