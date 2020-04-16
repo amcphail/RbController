@@ -10,16 +10,16 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import tensorflow as tf
 from tensorflow import keras
-import keras.backend as K
+import tensorflow.keras.backend as K
 
 import numpy as np
 import scipy as sp
-import scipy.optimize as op
+import scipy.optimize as so
 import matplotlib.pyplot as plt
 
 from Either import *
 
-tolerance=0e-6
+tolerance=0e-3
 
 # build the neural net
 #  Coil current 0 -> 60
@@ -28,7 +28,7 @@ tolerance=0e-6
 #  Repump detuning 74000 -> 86000
 
 
-class SingleMLP(Object):
+class SingleMLP:
     
     def __init__(self, input_length,hidden_layers,output_length,weights=None):
 
@@ -38,47 +38,49 @@ class SingleMLP(Object):
 
         minp = np.zeros((input_length))
         maxp = np.ones((input_length))
-        self.bounds = list(zip(minp,maxp))
+        self.bounds = list(zip(list(minp),list(maxp)))
 
         self.model = keras.Sequential()
-        self.model.add(keras.layers.Flatten(input_shape=(input_length,)))
+        self.model.add(keras.layers.InputLayer(input_shape=(input_length,)))
         for ii in range(1,len(hidden_layers)+1):
-            self.model.add(keras.layers.Dense(hidden_layers[ii-1], activation='relu'))
+            self.model.add(keras.layers.Dense(hidden_layers[ii-1], activation='relu',dtype='float64'))
             if weights:
                 self.model.get_layer(index=ii).set_weights([weights[ii]])             
 
-        self.model.add(keras.layers.Dense(output_length))
+        self.model.add(keras.layers.Dense(output_length,dtype='float64'))
         index = len(hidden_layers)+1
         if weights:
             self.model.get_layer(index=index).set_weights([weights[index]])             
                                                 
         self.model.compile(optimizer='adam',
+                           loss='mean_squared_error',
                            metrics=['accuracy'])
         
     def fit(self, x_train, y_train, epochs=3, batch_size=32):
-        self.model.fit(x_train, y_train, epochs=3, batch_size=32)
+        self.model.fit(x_train, y_train, epochs, batch_size)
 
     def cost(self,x):
-        return self.model.predict(x)
+        x1 = np.zeros((1,*x.shape))
+        x1[0] = x
+        return self.model.predict(x1)
 
     def jacobian(self,x):    
-        jacobian_matrix = []
-        for m in range(self.output_size):
-            # We iterate over the M elements of the output vector
-            grad_func = tf.gradients(self.model.output[:, m], self.model.input)
-        
-            with K.get_session() as sess:
-                gradients = sess.run(grad_func, feed_dict={self.model.input: x.reshape((1, x.size))})
+        x1 = tf.reshape(list(x),(1,60))
+        with tf.GradientTape() as g:  
+            x2 = tf.constant(x1)
+            g.watch(x2)  
+            y = self.model(x2)
 
-            jacobian_matrix.append(gradients[0][0,:])
-        
-        return np.array(jacobian_matrix)
+        jacobian = g.jacobian(y,x2)
 
+        return jacobian.numpy()
     
     def minimise(self, start_params, tolerance):
         '''
         Runs scipy.optimize.minimize() on the network.
         '''
+        print('In minimise')
+
         res = so.minimize(fun = self.cost,
                 x0 = start_params,
                 jac = self.jacobian,
@@ -94,7 +96,7 @@ class SingleMLP(Object):
     def getWeights(self):
         return self.model.get_weights
     
-class DifferentialEvolver(Object):
+class DifferentialEvolver:
 
     def __init__(self, dimensions, mutation_rate=0.8, crossp=0.7, popsize=15):
         
@@ -104,7 +106,7 @@ class DifferentialEvolver(Object):
         self.popsize=popsize
 
         self.population = np.random.rand(popsize,dimensions)
-        self.fitness = np.ones((popsize,dimensions))
+        self.fitness = np.ones((popsize))
         self.best_index = -1
         self.best = np.zeros(dimensions)
         
@@ -134,9 +136,9 @@ class DifferentialEvolver(Object):
         a, b, c, d, e = self.population[np.random.choice(idxs,5,replace=False)]
         # for best not rand use best instead of a
         mutant = np.clip(a+self.mutation_rate*((b-c)+(d-e)),0,1)
-        cross_points = np.random.rand(dimensions) < self.crossp
+        cross_points = np.random.rand(self.dimensions) < self.crossp
         if not np.any(cross_points):
-            cross_points[np.random.randint(0,dimensions)] = True
+            cross_points[np.random.randint(0,self.dimensions)] = True
         self.trial = np.where(cross_points, mutant, self.population[self.current_trial_index])
         return self.trial
 
@@ -146,6 +148,9 @@ class DifferentialEvolver(Object):
         self.trial = trial
 
     def setFitness(self,fitness):
+        print(fitness)
+        print('-----')
+        print(self.fitness)
         if fitness < self.fitness[self.current_trial_index]:
             self.fitness[self.current_trial_index] = fitness
             self.population[self.current_trial_index] = self.trial
@@ -156,13 +161,15 @@ class DifferentialEvolver(Object):
     def getBest(self):
         return self.best
 
-class Optimiser(Object):
+class Optimiser:
     
     def __init__(self,inputs,outputs,bounds,filename=None):
 
         self.inputs = inputs
         self.outputs = outputs
-        self.bounds = bounds.flatten()
+        self.bounds = (bounds[0].flatten(),bounds[1].flatten())
+
+        input_length = inputs[0]*inputs[1]
 
         self.anns = {}
         self.des = {}
@@ -171,7 +178,7 @@ class Optimiser(Object):
         self.de_init_trials = 0 # hard coding population size to 15
         self.de_init_pop = Nothing()
         self.de_init_fit = Nothing()
-        self.de_training_set = (np.zeros((2*self.inputs,self.inputs)),np.ones((2*self.inputs,1)))
+        self.de_training_set = ([],[])
         
         self.de_trials = -1
         self.nn_trained = False
@@ -192,10 +199,12 @@ class Optimiser(Object):
             self.anns[2] = SingleMLP(self.input_length,self.hidden_layers,self.output_length)
             self.anns[3] = SingleMLP(self.input_length,self.hidden_layers,self.output_length)
 
-            self.des[1] = DifferentialEvolver(self.inputs)
+            self.des[1] = DifferentialEvolver(self.input_length)
     
-        self.min_bound, self.max_bound = np.asarray(self.bounds).T
-        self.difference=np.fabs(self.min_bound-self.max_bound)
+        self.min_bound = self.bounds[0]
+        self.max_bound = self.bounds[1]
+
+        self.difference = np.fabs(self.min_bound-self.max_bound)
             
     def loadFile(self,filename):
     
@@ -220,7 +229,7 @@ class Optimiser(Object):
         de1_population = self.optimiser_file.get('de1_population')
         de1_fitness = self.optimiser_file.get('de1_fitness')
 
-        self.des[1] = DifferentialEvolver(self.inputs)
+        self.des[1] = DifferentialEvolver(self.input_length)
         self.des[1].setPopulation(de1_population)
         self.des[1].setFitness(de1_fitness)
 
@@ -296,7 +305,7 @@ class Optimiser(Object):
     def isDEInitialised(self):
         return self.de_initialised
 
-    def isNNRTrained(self):
+    def isNNTrained(self):
         return self.nn_trained
 
     def addTrainingData(self,trials,fitnesses):
@@ -305,14 +314,14 @@ class Optimiser(Object):
         
     def getBest(self):
 
-        trial = np.zeros(3)
+        trial = np.zeros((3,self.input_length))
         cost = np.ones(3)
 
         guess = self.nn_trials[-1]
 
         for ii in range(1,4):
             trial[ii-1] = self.anns[ii].getNextTrial(guess,tolerance)
-            cost[ii-1] = self.anns[ii].cost(trial)
+            cost[ii-1] = self.anns[ii].cost(trial[ii-1])
 
         idx_min_cost = np.argmin(cost)
 
@@ -327,7 +336,7 @@ class Optimiser(Object):
 
             pop = self.de_init_pop.value()
 
-            if self.de_init_trials <= len(pop):
+            if self.de_init_trials < len(pop):
                 trial = pop[self.de_init_trials]
                 
             #else:
@@ -338,11 +347,10 @@ class Optimiser(Object):
             trial = self.des[1].getNextTrial()
 
             self.de_trials += 1
-            self.de_training_set[0][self.de_trials] = trial
+            self.de_training_set[0].append(trial)
         
         else:
 
-            self.active_trial += 1
             if self.active_trial > 3:
                 if np.random.randint(0,20) == 0:
                     trial = self.getBest()
@@ -352,32 +360,40 @@ class Optimiser(Object):
                     trial = self.des[1].getNextTrial()
                     self.nn_trials.append(trial)
             else:
-                trial = self.nns[self.active_trial].getNextTrial(self.nn_trials[-1],tolerance)
+                print('Get trial from NN')
+                if len(self.nn_trials) == 0:
+                    print('Best')
+                    trial = self.des[1].getBest()
+                else:
+                    print('getNextTrial')
+                    trial = self.anns[self.active_trial].getNextTrial(self.nn_trials[-1],tolerance)
                 self.nn_trials.append(trial)
 
-        return self.denormInput(trial)
+        return self.denormInputs(trial)
 
     def setFitness(self,fitness):
         
         if not self.de_initialised:
+            pop = self.de_init_pop.value().shape
             if self.de_init_trials == 1:
-                self.de_init_fit = np.zeros((len(self.de_init_pop.value())))
+                self.de_init_fit = np.zeros((pop[0]))
 
-            if self.de_init_trials <= len(pop):
+
+            if self.de_init_trials <= pop[0]:
                 self.de_init_fit[self.de_init_trials-1] = fitness
                 
             else:
                 self.de_initialised = True
-                self.des[1].setFitness(self.de_init_fit)
+                self.des[1].setFitnesses(self.de_init_fit)
                 
         if not self.nn_trained:
 
             if self.de_trials <= 2*self.input_length:
-                self.de_training_set[1][self.de_trials-1] = fitness
+                self.de_training_set[1].append(fitness)
 
                 if self.de_trials == 2*self.input_length:
                     for ii in range(1,4):
-                        self.nns[ii].fit(*self.de_training_set)
+                        self.anns[ii].fit(np.array(self.de_training_set[0]),np.array(self.de_training_set[1]))
 
                     self.nn_trained = True
 
@@ -391,10 +407,10 @@ class Optimiser(Object):
                 self.active_trial += 1
                 self.nn_fitnesses.append(fitness)
 
-                x_train = np.array([self.de_training_set[0],np.array(self.nn_trials)])
-                y_train = np.array([self.de_training_set[1],np.array(self.nn_fitness)])
+                x_train = np.array(self.de_training_set[0]+self.nn_trials)
+                y_train = np.array(self.de_training_set[1]+self.nn_fitnesses)
                 for ii in range(1,4):
-                    self.nns[ii].fit(x_train,y_train)
+                    self.anns[ii].fit(x_train,y_train)
             
 
         # shouldn't reach here
