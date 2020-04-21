@@ -185,6 +185,23 @@ class ModuleLine(QtWidgets.QWidget):
 
         self.redoLayout()
 
+    def setStartTime(self,start):
+
+        offset = 0
+
+        event = self.pbModuleElements[0].getEvent()
+        if event.is_just():
+            e = event.value()
+            offset = start - e.startTime
+            e.startTime = start 
+            self.pbModuleElements[0].setEvent(e)
+            for ii in range(1,self.num_moduleElements):
+                event = self.pbModuleElements[ii].getEvent()
+                if event.is_just():
+                    e = event.value()
+                    e.startTime += offset
+                    self.pbModuleElements[ii].setEvent(e)
+                
     def sanityCheck(self,start,duration):
 
         if self.num_moduleElements == 1:

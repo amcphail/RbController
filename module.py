@@ -110,6 +110,8 @@ class moduleForm(QtWidgets.QWidget):
         self.setMinimumSize(self.width,self.height)
         self.setMaximumSize(self.width,self.height)
 
+        self.sbStartTime.valueChanged.connect(self.setStartTime)
+
         self.retranslateUi(self.parent)
 
 #        self.sbStartTime.valueChanged.connect(self.mainWindow.doLayout)
