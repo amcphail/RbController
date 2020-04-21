@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 
 from Either import *
 
-tolerance=0e-3
+tolerance=1e-6
 
 # build the neural net
 #  Coil current 0 -> 60
@@ -47,7 +47,7 @@ class SingleMLP:
             if weights:
                 self.model.get_layer(index=ii).set_weights([weights[ii]])             
 
-        self.model.add(keras.layers.Dense(output_length,dtype='float64'))
+        self.model.add(keras.layers.Dense(output_length,activation='linear',dtype='float64'))
         index = len(hidden_layers)+1
         if weights:
             self.model.get_layer(index=index).set_weights([weights[index]])             
@@ -57,7 +57,7 @@ class SingleMLP:
                            metrics=['accuracy'])
         
     def fit(self, x_train, y_train, epochs=3, batch_size=32):
-        self.model.fit(x_train, y_train, epochs, batch_size)
+        self.model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, verbose=0)
 
     def cost(self,x):
         x1 = np.zeros((1,*x.shape))
@@ -65,7 +65,7 @@ class SingleMLP:
         return self.model.predict(x1)
 
     def jacobian(self,x):    
-        x1 = tf.reshape(list(x),(1,60))
+        x1 = tf.reshape(list(x),(1,self.input_length))
         with tf.GradientTape() as g:  
             x2 = tf.constant(x1)
             g.watch(x2)  
@@ -75,7 +75,7 @@ class SingleMLP:
 
         return jacobian.numpy()
     
-    def minimise(self, start_params, tolerance):
+    def minimise(self, start_params, tolerance=tolerance):
         '''
         Runs scipy.optimize.minimize() on the network.
         '''
@@ -83,6 +83,7 @@ class SingleMLP:
 
         res = so.minimize(fun = self.cost,
                 x0 = start_params,
+                method='L-BFGS-B',
                 jac = self.jacobian,
                 bounds = self.bounds,
                 tol = tolerance)
@@ -94,11 +95,11 @@ class SingleMLP:
         return result.x
 
     def getWeights(self):
-        return self.model.get_weights
+        return self.model.get_weights()
     
 class DifferentialEvolver:
 
-    def __init__(self, dimensions, mutation_rate=0.8, crossp=0.7, popsize=15):
+    def __init__(self, dimensions, mutation_rate=0.5, crossp=0.7, popsize=15):
         
         self.dimensions=dimensions
         self.mutation_rate=mutation_rate
@@ -145,12 +146,11 @@ class DifferentialEvolver:
     def setThisTrial(self,trial):
         self.current_trial_index = np.random.randint(0,self.popsize)
 
+        self.population[self.current_trial_index] = trial
+
         self.trial = trial
 
     def setFitness(self,fitness):
-        print(fitness)
-        print('-----')
-        print(self.fitness)
         if fitness < self.fitness[self.current_trial_index]:
             self.fitness[self.current_trial_index] = fitness
             self.population[self.current_trial_index] = self.trial
@@ -297,8 +297,9 @@ class Optimiser:
     def setGuess(self,guess,cost):
         population = self.des[1].getPopulation()
         fitnesses = self.des[1].getFitnesses()
-        population[0] = self.normInputs(guess)
-        fitnesses[0] = cost
+        index = np.random.randint(population.shape[0])
+        population[index] = self.normInputs(guess)
+        fitnesses[index] = cost
         self.des[1].setPopulation(population)
         self.des[1].setFitnesses(fitnesses)
             
@@ -352,7 +353,7 @@ class Optimiser:
         else:
 
             if self.active_trial > 3:
-                if np.random.randint(0,20) == 0:
+                if np.random.randint(0,3) == 0:
                     trial = self.getBest()
                     self.des[1].setThisTrial(trial)
                     self.nn_trials.append(trial)

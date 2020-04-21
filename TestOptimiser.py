@@ -8,12 +8,13 @@ from Optimiser import Optimiser
 
 def evaluate(x):
     x1 = x.flatten()
-    return sum(x1**2)/len(x)
+    m = 0.5*np.ones(len(x1))
+    return sum((x1-m)**2)/len(x1)
 
 
 def test():
 
-    shape = (3,20)
+    shape = (1,10)
 
     min_bound = np.zeros(shape)
     max_bound = np.ones(shape)
@@ -29,7 +30,9 @@ def test():
         trial = op.getTrial()
         cost = evaluate(trial)
         
-        print(cost)
+        print('Trial: ',trial)
+
+        print('Cost: ',cost)
 
         op.setFitness(cost)
 
@@ -37,14 +40,16 @@ def test():
 
     print('NN Trained')
 
-    for ii in range(1000):
+    for ii in range(100):
 
         print('Trial: ',ii)
         
         trial = op.getTrial()
         cost = evaluate(trial)
         
-        print(cost)
+        print('Trial: ',trial)
+
+        print('Cost: ',cost)
 
         op.setFitness(cost)
 
@@ -61,6 +66,8 @@ def test():
     plt.ylabel('Cost')
     plt.title('Cost over Time of Optimiser')
     plt.show()
+
+    plt.savefig('optimier_test.png')
 
 
 if __name__ == "__main__":
