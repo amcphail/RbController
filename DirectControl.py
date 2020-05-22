@@ -64,6 +64,10 @@ class AnalogEntry(QtWidgets.QWidget):
                 
         self.valueChanged.emit(self.channel,value)
 
+    def updateValue(self):
+        val = self.getValue()
+        self.changeValue(val)
+
     def enableEdit(self,state):
         self.sbValue.setEnabled(state)
         
@@ -142,6 +146,10 @@ class DigitalEntry(QtWidgets.QWidget):
                 
         self.valueChanged.emit(self.channel,value)
 
+    def updateValue(self):
+        val = self.getValue()
+        self.changeValue(val)
+
 class NetworkEntry(QtWidgets.QWidget):
         
     valueChanged = QtCore.pyqtSignal(int, int, int, float, name='valueChanged')
@@ -180,7 +188,14 @@ class NetworkEntry(QtWidgets.QWidget):
             self.wNetworkDDS.channels[subchannel].setAmplitude(value)
 
         self.valueChanged.emit(self.channel,subchannel,function,value)
-        
+
+    def updateValue(self):
+        for ii in range(4):
+            freq = self.getValue(ii,0)
+            amp = self.getValue(ii,1)
+            self.changeValue(ii,0,freq)
+            self.changeValue(ii,1,amp)
+
 class DirectControl(QtWidgets.QWidget):
     def __init__(self,mainWindow,parent = None):
         super(DirectControl,self).__init__(parent)
@@ -310,6 +325,9 @@ class DirectControl(QtWidgets.QWidget):
         
         self.tPushBeam = QtCore.QTimer()
         self.pushBeamOn = False
+
+        self.pushBeamState = False
+        self.cycleMOTState = False
         
         self.cursor += 30
         
@@ -364,7 +382,7 @@ class DirectControl(QtWidgets.QWidget):
         Form.setWindowTitle(_translate("Form", "Form"))
         self.lbChannel.setText(_translate("Form", "Channel"))
         self.lbValue.setText(_translate("Form", "Value"))
-        
+
     def changeAnalog(self,channel,value):
         daq.writeAnalog(channel,value)
         
@@ -412,6 +430,28 @@ class DirectControl(QtWidgets.QWidget):
             self.tPushBeam.start(self.sbPushBeamOn.value())
         self.pushBeamOn = not self.pushBeamOn
             
+    def stop(self):
+        self.pushBeamState = self.cbPushBeam.isChecked()
+        self.cycleMOTState = self.cbCycleMOT1.isChecked()
+
+        self.cbPushBeam.setChecked(False)
+        self.cbCycleMOT1.setChecked(False)
+
+    def restart(self):
+        self.cbPushBeam.setChecked(self.pushBeamState)
+        self.cbCycleMOT1.setChecked(self.cycleMOTState)
+
+        for ii in range(daq.analog_outputs):
+            self.analogLines[ii].updateValue()
+        
+        for ii in range(daq.digital_outputs):
+            jj = ii + daq.analog_outputs
+            self.digitalLines[ii].updateValue()
+
+        for ii in range(daq.network_outputs):
+            jj = ii + daq.analog_outputs + daq.digital_outputs
+            self.networkLines[ii].updateValue()
+        
     def FSChannelChanged(self,index):
         for ii in range(channelsPerDDS):
             chan = self.cbFSChannel.currentIndex() + daq.analog_outputs + daq.digital_outputs

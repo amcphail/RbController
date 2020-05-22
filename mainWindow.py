@@ -577,18 +577,32 @@ class Ui_MainWindow(object):
                 s.recv(5)
                 s.close()   
 
-        camera.shoot(2)
+        try:
+
+            camera.shoot(2)
+        
+        except:
+            error_dialog = QtWidgets.QErrorMessage()
+            error_dialog.showMessage('Could not send shoot to camera')
         
         if self.Waveform.is_just():
             (samples,data) = self.Waveform.value()
+            self.directControl.stop()
             daq.run(samples,data)
+            self.directControl.restart()
         else:
             print("No waveform to send.")
 
-        data = camera.read()
-        
-        self.fPicture.loadData(data)
+        try:
 
+            data = camera.read()
+        
+            self.fPicture.loadData(data)
+
+        except:
+            error_dialog = QtWidgets.QErrorMessage()
+            error_dialog.showMessage('Did not get image from CameraServer')
+        
     def reset(self):
         daq.stop()
         

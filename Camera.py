@@ -38,13 +38,20 @@ TMPFITS= '/home/lab/zdrive/kuroTemp/temp.fit'
 
 class Camera():
     def __init__(self):
-        s=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(10)
-        s.connect((TCPIP,PORT))
-        ml='alive?'
-        s.send(ml.encode())
-        #a=s.recv(5)
-        s.close()
+
+        try:
+            s=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(10)
+            s.connect((TCPIP,PORT))
+            ml='alive?'
+            s.send(ml.encode())
+            #a=s.recv(5)
+            s.close()
+
+        except:
+            print('Could not initialise camera')
+        
+
 
     def shoot(self,nframes):
         s=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
