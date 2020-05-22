@@ -10,7 +10,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import tensorflow as tf
 from tensorflow import keras
-import tensorflow.keras.backend as K
 
 import numpy as np
 import scipy as sp
@@ -27,6 +26,19 @@ tolerance=1e-6
 #  MOT detuning 74000 -> 86000
 #  Repump detuning 74000 -> 86000
 
+def gaussian(x):
+    sq = tf.square(x)
+    neg = tf.negative(sq)
+    return tf.exp(neg)
+
+def gelu_fast(x):
+    po = (x + 0.044715 * tf.pow(x, 3))
+    sq = tf.cast(tf.sqrt(2 / np.pi),tf.float64)
+    ta = (1 + tf.tanh(sq*po))
+    return 0.5 * x * ta
+
+def cubic(x):
+    return tf.pow(x,1/3)
 
 class SingleMLP:
     
@@ -40,10 +52,13 @@ class SingleMLP:
         maxp = np.ones((input_length))
         self.bounds = list(zip(list(minp),list(maxp)))
 
+        self.adam = keras.optimizers.Adam(epsilon=1e-8)
+        
         self.model = keras.Sequential()
         self.model.add(keras.layers.InputLayer(input_shape=(input_length,)))
         for ii in range(1,len(hidden_layers)+1):
-            self.model.add(keras.layers.Dense(hidden_layers[ii-1], activation='relu',dtype='float64'))
+#            self.model.add(keras.layers.Dense(hidden_layers[ii-1], activation=gelu_fast,kernel_regularizer=keras.regularizers.l2(),kernel_initializer=keras.initializers.he_uniform(),dtype='float64'))
+            self.model.add(keras.layers.Dense(hidden_layers[ii-1], activation=gelu_fast, kernel_regularizer=keras.regularizers.l2(1e-8), kernel_initializer=keras.initializers.he_uniform(), dtype='float64'))
             if weights:
                 self.model.get_layer(index=ii).set_weights([weights[ii]])             
 
@@ -52,11 +67,11 @@ class SingleMLP:
         if weights:
             self.model.get_layer(index=index).set_weights([weights[index]])             
                                                 
-        self.model.compile(optimizer='adam',
+        self.model.compile(optimizer=self.adam,
                            loss='mean_squared_error',
                            metrics=['mse'])
         
-    def fit(self, x_train, y_train, epochs=3, batch_size=32):
+    def fit(self, x_train, y_train, epochs=3, batch_size=16):
         self.model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, verbose=0)
 
     def cost(self,x):
@@ -90,7 +105,8 @@ class SingleMLP:
 
         return res
 
-    def getNextTrial(self,guess,tolerance):
+    def getNextTrial(self,tolerance):
+        guess = np.random.rand(self.input_length)
         result = self.minimise(guess,tolerance)
         return result.x
 
@@ -99,10 +115,9 @@ class SingleMLP:
     
 class DifferentialEvolver:
 
-    def __init__(self, dimensions, mutation_rate=0.5, crossp=0.7, popsize=15):
+    def __init__(self, dimensions, crossp=0.7, popsize=15):
         
         self.dimensions=dimensions
-        self.mutation_rate=mutation_rate
         self.crossp=crossp
         self.popsize=popsize
 
@@ -136,7 +151,8 @@ class DifferentialEvolver:
         # rand/2
         a, b, c, d, e = self.population[np.random.choice(idxs,5,replace=False)]
         # for best not rand use best instead of a
-        mutant = np.clip(a+self.mutation_rate*((b-c)+(d-e)),0,1)
+        mutation_rate = np.random.rand(1)/2 + 0.5
+        mutant = np.clip(a+mutation_rate*((b-c)+(d-e)),0,1)
         cross_points = np.random.rand(self.dimensions) < self.crossp
         if not np.any(cross_points):
             cross_points[np.random.randint(0,self.dimensions)] = True
@@ -318,10 +334,8 @@ class Optimiser:
         trial = np.zeros((3,self.input_length))
         cost = np.ones(3)
 
-        guess = self.nn_trials[-1]
-
         for ii in range(1,4):
-            trial[ii-1] = self.anns[ii].getNextTrial(guess,tolerance)
+            trial[ii-1] = self.anns[ii].getNextTrial(tolerance)
             cost[ii-1] = self.anns[ii].cost(trial[ii-1])
 
         idx_min_cost = np.argmin(cost)
@@ -353,13 +367,8 @@ class Optimiser:
         else:
 
             if self.active_trial > 3:
-                if np.random.randint(0,3) == 0:
-                    trial = self.getBest()
-                    self.des[1].setThisTrial(trial)
-                    self.nn_trials.append(trial)
-                else:
-                    trial = self.des[1].getNextTrial()
-                    self.nn_trials.append(trial)
+                trial = self.des[1].getNextTrial()
+                self.nn_trials.append(trial)
             else:
                 print('Get trial from NN')
                 if len(self.nn_trials) == 0:
@@ -367,7 +376,7 @@ class Optimiser:
                     trial = self.des[1].getBest()
                 else:
                     print('getNextTrial')
-                    trial = self.anns[self.active_trial].getNextTrial(self.nn_trials[-1],tolerance)
+                    trial = self.anns[self.active_trial].getNextTrial(tolerance)
                 self.nn_trials.append(trial)
 
         return self.denormInputs(trial)
@@ -394,7 +403,7 @@ class Optimiser:
 
                 if self.de_trials == 2*self.input_length:
                     for ii in range(1,4):
-                        self.anns[ii].fit(np.array(self.de_training_set[0]),np.array(self.de_training_set[1]))
+                        self.anns[ii].fit(np.array(self.de_training_set[0]),np.array(self.de_training_set[1]),epochs=100)
 
                     self.nn_trained = True
 
@@ -411,7 +420,7 @@ class Optimiser:
                 x_train = np.array(self.de_training_set[0]+self.nn_trials)
                 y_train = np.array(self.de_training_set[1]+self.nn_fitnesses)
                 for ii in range(1,4):
-                    self.anns[ii].fit(x_train,y_train)
+                    self.anns[ii].fit(x_train,y_train,epochs=20)
             
 
         # shouldn't reach here
