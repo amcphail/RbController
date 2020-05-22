@@ -54,7 +54,7 @@ class SingleMLP:
                                                 
         self.model.compile(optimizer='adam',
                            loss='mean_squared_error',
-                           metrics=['accuracy'])
+                           metrics=['mse'])
         
     def fit(self, x_train, y_train, epochs=3, batch_size=32):
         self.model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, verbose=0)

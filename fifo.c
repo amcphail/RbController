@@ -52,6 +52,17 @@ long config(int card, unsigned long samples, long* data)
 
   long result = EDRE_DAConfig(SnDAC0,63,FREQUENCY,0,1,0,samples*BANKS,data);
 
+  /*
+  int i, j;
+
+  for (i = 0; i < samples; i++) {
+    for (j = 0; j < BANKS; j++) {
+      printf("%d\t",data[i*BANKS+j]);
+    }
+    printf("\n");
+  }
+  */
+
   return result;
 }
 
@@ -161,6 +172,10 @@ void* doRun(void* arguments)
     space = query(args->card,205,0);
 
 //    space /= 2;
+    if (space > LARGEST_CHUNK_SIZE) {
+      space = LARGEST_CHUNK_SIZE;
+    }
+
     space = (space / BANKS) * BANKS;
 
     if (space > 0) {
@@ -189,7 +204,7 @@ void* doRun(void* arguments)
       else {
 	size = 1;
 
-	result = update(args->card,size*BANKS,&data[cursor]);
+	result = update(args->card,size,&data[cursor]);
 
 	if (result) {
 	  char err[256];

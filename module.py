@@ -310,7 +310,7 @@ class moduleForm(QtWidgets.QWidget):
                 return sane
 
         for ii in range(self.num_networkLines):
-            sane = self.NetworkLines[ii].sanityCheck(self.sbStartTime.value(),self.sbDuration.value())
+            sane = self.networkLines[ii].sanityCheck(self.sbStartTime.value(),self.sbDuration.value())
             if sane.is_just():
                 return sane
 

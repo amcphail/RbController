@@ -2,8 +2,9 @@
 #define __AVHM_FIFO_H__
 
 //#define FREQUENCY 75
-#define FREQUENCY 200
+#define FREQUENCY 1000
 #define LARGEST_CHUNK_SIZE 524288
+//#define LARGEST_CHUNK_SIZE 240000
 
 #define BANKS 24
 

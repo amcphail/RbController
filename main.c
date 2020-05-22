@@ -7,7 +7,8 @@
 
 int main(int argc, char* argv[])
 {
-  int samples = 2097152;
+  //  int samples = 2097152;
+  int samples = 1000000;
 
   long* buffer = (long *)malloc(BANKS*samples*sizeof(long));
 
@@ -19,13 +20,40 @@ int main(int argc, char* argv[])
   
   for (i = 0; i < sine; i++) {
     for (j = 0; j < BANKS; j++) {
-      buffer[i*BANKS+j] = 5000000/(j+1);
+      if (j == 6) {
+	//	buffer[i*BANKS+j] = 5000000/(j+1);
+	buffer[i*BANKS+j] = 0;
+      }
+      else {
+	buffer[i*BANKS+j] = 0;
+      }
     }
   }
 
-  for (i = sine; i < samples; i++) {
+  int sine2 = sine + 10000;
+
+  for (i = sine; i < sine2; i++) {
     for (j = 0; j < BANKS; j++) {
-      buffer[i*BANKS+j] = round(sin(i*inc/(j+1))*5000000.0);
+      if (j == 6) {
+	//	buffer[i*BANKS+j] = 5000000/(j+1);
+	buffer[i*BANKS+j] = round(sin(i*inc)*5000000.0);
+      }
+      else {
+	buffer[i*BANKS+j] = 0;
+      }
+    }
+  }
+  
+
+  for (i = sine2; i < samples; i++) {
+    for (j = 0; j < BANKS; j++) {
+      if (j == 6) {
+	//      buffer[i*BANKS+j] = round(sin(i*inc/(j+1))*5000000.0);
+	buffer[i*BANKS+j] = 5000000;
+      }
+      else {
+	buffer[i*BANKS+j] = 0;
+      }
     }
   }
 
@@ -33,19 +61,19 @@ int main(int argc, char* argv[])
 
   printf("Stop result: %ld\n",result);
 
-  result = writeChannel(0,0,10000000);
+  result = writeChannel(0,6,10000000);
 
   printf("Write result: %ld\n",result);
 
   sleep(1);
 
-  result = writeChannel(0,0,0);
+  result = writeChannel(0,6,0);
 
   printf("Write result: %ld\n",result);
 
   sleep(1);
 
-  result = writeChannel(0,0,-10000000);
+  result = writeChannel(0,6,-10000000);
 
   printf("Write result: %ld\n",result);
 

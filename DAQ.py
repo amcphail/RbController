@@ -116,13 +116,39 @@ class NetworkLine(Line):
 #    #1.31V = 0.0555A
 #    return 35*input
  
+#def calibrate6(input): # anti-HH calibration
+#    # 400 mV = 8.8
+#    # 200 mV = 4.8 A
+#    # 100 mV = 2.8 A
+#    # 50 mV = 1.8 A
+#    # 0 mV = 0.8 A
+#    return 50000*input - 40000
+
+def calibrate3(input): #HH y-coil calibration
+    # 0mV = 0.00771A
+    # 1000mV = 0.7671A
+    # 2000mV = 1.5257A
+    return 752*input - 10
+  
+def calibrate4(input): #HH y-coils calibration
+    # 0mV = -0.00697A
+    # 1000mV = 0.4742A
+    # 2000mV = 0.9579A
+    return 1259*input + 14
+ 
+def calibrate5(input): #HH z-coils calibration
+    # 0mV = -0.00871A
+    # 1000mV = 0.4603A
+    # 2000mV = 0.9313A
+    return 1376*input + 19
+ 
 def calibrate6(input): # anti-HH calibration
-    # 400 mV = 8.8
-    # 200 mV = 4.8 A
-    # 100 mV = 2.8 A
-    # 50 mV = 1.8 A
+    # 400 mV = 7.1 A
+    # 200 mV = 3.1 A
+    # 100 mV = 1.1 A
     # 0 mV = 0.8 A
-    return 50000*input - 40000
+    return 50000*input + 45000
+
 
     
 class DAQ():
@@ -157,7 +183,7 @@ class DAQ():
         self.lines[17] = AnalogLine(17,"Analog 17",-10000,10000,100,0,"mV",lambda x: x*1000)
         
         self.lines[18] = DigitalLine(18,"Digital 0",0,5000000,False)
-        self.lines[19] = DigitalLine(19,"Digital 1",0,5000000,False)
+        self.lines[19] = DigitalLine(19,"Camera Trigger",0,3300000,False)
         self.lines[20] = DigitalLine(20,"Digital 2",0,5000000,False)
         self.lines[21] = DigitalLine(21,"Digital 3",0,5000000,False)
         

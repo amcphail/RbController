@@ -154,11 +154,11 @@ class formModuleSelect(QtWidgets.QDialog):
 
     def populatePreexisting(self):
         for jj in self.modules[self.moduleNumber].analogLines.keys():
-            self.cbAnalog[jj].setChecked(True)
+            self.cbAnalog[self.modules[self.moduleNumber].analogLines[jj].getChannelNumber()].setChecked(True)
         for jj in self.modules[self.moduleNumber].digitalLines.keys():
-            self.cbDigital[jj].setChecked(True)
+            self.cbDigital[self.modules[self.moduleNumber].digitalLines[jj].getChannelNumber()].setChecked(True)
         for jj in self.modules[self.moduleNumber].networkLines.keys():
-            self.cbNetwork[jj].setChecked(True)
+            self.cbNetwork[self.modules[self.moduleNumber].networkLines[jj].getChannelNumber()].setChecked(True)
 
     def addModule(self):
         self.ui.addModule(self)

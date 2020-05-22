@@ -242,7 +242,8 @@ class Ui_MainWindow(object):
             return
 
         commands = {}
-        
+        dds_sequences = {}
+
         self.sequences.clear()
         self.networks.clear()
         
@@ -257,9 +258,9 @@ class Ui_MainWindow(object):
             item = layoutGroups[ii]
             for jj in range(len(item)):
                 module = self.modules[item[jj].index]
-                sequences, commands = module.convertToSequences()
+                sequences, operations = module.convertToSequences()
                 self.sequences[self.seq_index] = sequences
-                self.networks[self.seq_index] = commands
+                self.networks[self.seq_index] = operations
                 st = module.sbStartTime.value()
                 du = module.sbDuration.value()
                 if st < start:
@@ -290,8 +291,10 @@ class Ui_MainWindow(object):
                 data[ii,:] = np.zeros((1,length))
                 
 #        print("sequences: ",self.sequences)
-        print("networks: ",self.networks)
-        
+#        np.save(sequence.npy,self.sequences)
+
+        print("about to make sequences")
+
         for ii in range(self.seq_index):
             sequence = self.sequences[ii]
 
@@ -300,53 +303,70 @@ class Ui_MainWindow(object):
                 channel = jj[1]
                 values = sequence[jj]
 
-                for kk in range(len(values)):
-                    for ll in range(len(values[kk])):
-                        val = values[kk][ll][1]
-                        line = daq.lines[channel]
-                        if isinstance(line,AnalogLine):
-                            val = line.calibration(val)
-                        elif isinstance(line,DigitalLine):
-                            val = val * line.on_value
-                        value = round(val)
-                        data[channel][values[kk][ll][0]//timeIncrement] = value
+                if (channel == 22) or (channel == 23):
+                    data[channel][0:2] = networkTriggerVoltage
+                else:
+                    for kk in range(len(values)):
+                        for ll in range(len(values[kk])):
+                            val = values[kk][ll][1]
+                            line = daq.lines[channel]
+                            if isinstance(line,AnalogLine):
+                                val = line.calibration(val)
+                            elif isinstance(line,DigitalLine):
+                                val = val * line.on_value
+                            value = round(val)
+                            data[channel][values[kk][ll][0]//timeIncrement] = value
+
+        print("networks: ",self.networks)
+
+        for ii in range(self.seq_index):
 
             network = self.networks[ii]
             
             print('network ',network)
             
-            for jj in network.keys():
-                print('jj ',jj)
-                print('commands ',commands)
-                print('commands[jj] ',commands[jj])
-                flat_list = []
-                for sublist in commands[jj]:
-                    for item in sublist:
-                        flat_list.append(item)
-                commands[jj] = flat_list
-                commands[jj].insert(0,"LOAD,")
-                command = network[jj]
-                s = ''
-                for kk in range(len(command)-1):
-                    s += command[kk]
-                    s += ','
-                s += command[len(command)-1]
-                commands[jj].append(s)
+            if not network == {}:
+
+                for jj in network.keys():
+                    if not jj in commands:
+                        commands[jj] = [[]]
+
+                for jj in network.keys():
+                    print('jj ',jj)
+                    flat_list = []
+                    for sublist in network[jj]:
+                        for item in sublist:
+                            flat_list.append(item)
+                    s = ''
+                    for kk in range(len(flat_list)-1):
+                        s += flat_list[kk]
+                        s += ','
+                    s += flat_list[-1]
+                    commands[jj].append([s])
                         
-        for ii in commands.keys():
-            commands[ii].append(",F")
-            
-        print('commands ',commands)
+                for jj in commands.keys():
+                    flat_list = []
+                    for sublist in commands[jj]:
+                        for item in sublist:
+                            flat_list.append(item)
+                    s = 'LOAD,'
+                    for kk in range(len(flat_list)-1):
+                        s += flat_list[kk]
+                        s += ','
+                    s += flat_list[-1]
+                    s += ',F'
+                    dds_sequences[jj] = s
+
+        print('dds_sequences ',dds_sequences)
         
+        np.save('data.npy',data)
+
         data = data.astype('long').flatten('F')
 
-        # 2**16 = 4 * 2**14, the FIFO was being given 16 bit values
-        # data *= 4 # THIS IS BAD!
-        # when run from direct control the value passed to DAQ gets sent correctly.
-        # when running through the FIFO this magic multiplication makes things work.
+        np.save('sequence.npy',data)
 
         self.Waveform = Just((length,data))
-        self.Network = Just(commands)
+        self.Network = Just(dds_sequences)
         
     def openFile(self):
         
@@ -526,6 +546,8 @@ class Ui_MainWindow(object):
                 self.gloChannelsContents.addWidget(self.modules[self.num_modules])
       
                 self.num_modules += 1
+
+                data = eatWhiteSpace(data)
         
             self.doLayout()
 
@@ -549,19 +571,23 @@ class Ui_MainWindow(object):
                 
                 print(command)
                 
-                array = command.toLatin1()
-                buffer = array.data()
+                buffer = bytearray()
+                buffer.extend(map(ord,command))
                 s.send(buffer)
                 s.recv(5)
                 s.close()   
+
+        camera.shoot(2)
         
         if self.Waveform.is_just():
             (samples,data) = self.Waveform.value()
-#            camera.setTriggers(3,'temp.fit')
             daq.run(samples,data)
-#            fits = camera.getImage()
         else:
             print("No waveform to send.")
+
+        data = camera.read()
+        
+        self.fPicture.loadData(data)
 
     def reset(self):
         daq.stop()
@@ -707,11 +733,13 @@ class Ui_MainWindow(object):
 
         layoutIntervals = {}
       
+        start_y = 0
+        
         for ii in range(len(layoutGroups)):
             layoutIntervals[ii] = joinIntervalsGroup(layoutGroups[ii])
 
-            start_y = 0
-        
+            print("layoutIntervals[ii]: ",layoutIntervals[ii])
+
             modules = {}
             module_index = 0
             
@@ -723,6 +751,7 @@ class Ui_MainWindow(object):
 
             while layint:
                 interval = layint.pop(0)
+                print("interval: ",interval)
                 if interval[0] == module_index:
                     modules[module_index].append(interval)
                 else:
@@ -738,6 +767,9 @@ class Ui_MainWindow(object):
                 start = modules[jj][0][1] 
                 finish = modules[jj][0][2]
                 
+                print("start: ",start)
+                print("finish: ",finish)
+
                 for kk in range(1,len(modules[jj])):
                     
                     finish = modules[jj][kk][2]
@@ -745,8 +777,13 @@ class Ui_MainWindow(object):
                 width = finish - start
                 height = self.modules[modules[jj][0][0]].height
 
+                print("width: ",width)
+                print("height: ",height)
+
                 self.gloChannelsContents.addWidget(self.modules[modules[jj][0][0]],start_y//10,start//10,height//10,width//10)
                 self.modules[modules[jj][0][0]].show()
+
+                print("self.modules[modules[jj][0][0]: ",self.modules[modules[jj][0][0]])
                 
                 start_y += height
 

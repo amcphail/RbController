@@ -24,28 +24,81 @@ from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
+import socket
+import os
+import astropy.io.fits as fits
+import time
+import numpy as np
 
-class Camera(object):
+
+TCPIP='10.103.154.4'
+PORT= 54321
+BUFFER_SIZE = 512
+TMPFITS= '/home/lab/zdrive/kuroTemp/temp.fit'
+
+class Camera():
     def __init__(self):
-        pass
-    
-    def shoot(self,num_triggers,filename):
-        pass
-    
-    def setTriggers(self,num_triggers,filename):
-        pass
-    
-    def getImage(self):
-        pass
-    
+        s=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(10)
+        s.connect((TCPIP,PORT))
+        ml='alive?'
+        s.send(ml.encode())
+        #a=s.recv(5)
+        s.close()
+
+    def shoot(self,nframes):
+        s=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(10)
+        s.connect((TCPIP,PORT))
+        ml='acquire'+str(nframes)
+        s.send(ml.encode())
+
+    def read(self):
+        t=0
+        while not (os.path.exists(TMPFITS)):
+            time.sleep(0.1)
+            t=t+1
+            if (t>100): break
+        hdu=fits.open(TMPFITS)
+        imgdata=hdu[0].data
+        outdata=np.array(imgdata)
+        hdu.close()
+        #os.remove(TMPFITS)
+        return outdata
+
+    def plot(self,data,npics):
+        import matplotlib.pyplot as plt
+        realdata=data[0,:,:]
+        if (npics==1):
+            plt.imshow(realdata)#, cmap=cm.jet, aspect='auto')
+            plt.show()
+
+#if __name__=='__main__':
+#    import DAQ
+#    EDRE=DAQ.EDRE_Interface()
+#    cam=camera()
+#    cam.shoot(1)
+#    time.sleep(0.1)
+#    EDRE.writeChannel(0,19,5000000)
+#    time.sleep(0.01)
+#    EDRE.writeChannel(0,19,0)
+#    a=cam.read()
+#    cam.plot(a,1)
+#    print(a.shape)
+
 camera = Camera()
 
+ 
 def doCutoff(ratio):       
     if np.isinf(ratio):
         ratio = 1
     elif np.isnan(ratio):
         ratio = 1
     return ratio
+
+def doCutoff_Vec(ratio):
+    vec = np.vectorize(doCutoff)
+    return vec(ratio)
 
 class MouseGraphicsView(QtWidgets.QGraphicsView):
 
@@ -76,6 +129,8 @@ class Picture(QtWidgets.QWidget):
 
         self.parent = parent
 
+        self.FirstPlot = True
+
         self.XSize = xs
         self.YSize = ys
        
@@ -99,7 +154,8 @@ class Picture(QtWidgets.QWidget):
         self.numAtoms = 0
 
         self.isFocussing = False
-       
+        self.DisplayLowPass = False
+
         self.figure =  Figure(figsize=(xs, ys), dpi=dpi) #QtGui.QImage(512,512,QtGui.QImage.Format_RGB32)
         
         self.canvas = FigureCanvas(self.figure)
@@ -121,9 +177,9 @@ class Picture(QtWidgets.QWidget):
         
 #        self.LUT = readLUT("Fire.lut")
         
-        self.PicShow = False
+        self.PicShow = 2
         self.IsShadow = False
-        
+
         #self.scene = QtWidgets.QGraphicsScene(self)
         #self.view = MouseGraphicsView(self)
         #self.view.setMouseTracking(True)
@@ -148,8 +204,7 @@ class Picture(QtWidgets.QWidget):
         
         self.data = data[0]
         self.noAtoms = data[1]
-        self.noLaser = data[2]
-
+#        self.noLaser = data[2]
 
         self.plot()
        
@@ -225,7 +280,7 @@ class Picture(QtWidgets.QWidget):
         MaxXInd = ind[1]
         MaxYInd = ind[0]
             
-        print("Min of %g at %d %d Max of %g at %d %d\n" % (MinVal,MinXInd,MinYInd,MaxVal,MaxXInd,MaxYInd))
+#        print("Min of %g at %d %d Max of %g at %d %d\n" % (MinVal,MinXInd,MinYInd,MaxVal,MaxXInd,MaxYInd))
         
         contrast = MaxVal-MinVal
     
@@ -235,8 +290,8 @@ class Picture(QtWidgets.QWidget):
         
         tt1 =self.Display - MinVal
         ratio = tt1/contrast
-        
-        cutoff = np.array(list(map(doCutoff, ratio)))
+
+        cutoff = np.array(list(doCutoff_Vec(ratio)))
         
         tt1=255*ratio
         temp = np.floor(tt1)
@@ -244,7 +299,7 @@ class Picture(QtWidgets.QWidget):
         
         ROIactive = True #Set to false to disable the following sequence
         
-        if ROIactive and self.picShow == 5:
+        if ROIactive and self.PicShow == 5:
             
             for i in range(self.ROIx1,self.ROIx2):
                 self.data[i,self.ROIy1] = 0x00000000 #self.image.setPixel(i,self.ROIy1,0x00000000)
@@ -268,7 +323,13 @@ class Picture(QtWidgets.QWidget):
         
         
     def plot(self):
-        self.ax.imshow(self.data, cmap=cm.jet, aspect='auto')
+        self.GetImage(0)
+        if self.FirstPlot:
+            self.im = self.ax.imshow(self.Display, cmap=cm.jet, aspect='auto')
+            self.FirstPlot = False
+        else:
+            self.im.set_data(self.Display)
+            self.figure.canvas.draw()
 #        self.canvas.draw()
 
     
