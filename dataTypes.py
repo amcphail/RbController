@@ -44,7 +44,12 @@ class Operation():
         else:
             function = 'AMPL'
             
-        return str(start)+','+function+','+str(self.channel)+','+str(self.value)
+        if start == 0:
+            start = 1
+
+        val = self.value/1000.0
+
+        return str(start)+','+function+','+str(self.channel)+','+str(val)
     
     def toString(self):
         return str(self.channel)+' '+str(self.function)+' '+str(self.value)

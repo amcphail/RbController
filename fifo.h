@@ -3,9 +3,10 @@
 
 //#define FREQUENCY 75
 #define FREQUENCY 1000
-#define LARGEST_CHUNK_SIZE 524288
-//#define LARGEST_CHUNK_SIZE 240000
-
+//#define LARGEST_CHUNK_SIZE 524288
+#define LARGEST_CHUNK_SIZE 240000
+//#define LARGEST_CHUNK_SIZE 1572864
+ 
 #define BANKS 24
 
 void errorString(long error, char* str);

@@ -242,11 +242,13 @@ def stringToModule(data,module):
             events, data = stringToNetworkLine(data)
     
             network_lines[channel] = events            
+        elif line_type == 'E':
+            _, data = readString('END',data)
+            data = eatEOL(data)
+            data = eatEOL(data)
+            break
         else:
             break
-    while data:
-        data = eatWhiteSpace(data)
-        data = eatEOL(data)
     
     module.populateModule(name,int(start),int(duration),analog_lines,digital_lines,network_lines)            
 

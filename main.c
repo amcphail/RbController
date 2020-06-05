@@ -8,7 +8,8 @@
 int main(int argc, char* argv[])
 {
   //  int samples = 2097152;
-  int samples = 1000000;
+  //int samples = 1000000;
+  int samples = 65512;
 
   long* buffer = (long *)malloc(BANKS*samples*sizeof(long));
 
@@ -16,13 +17,19 @@ int main(int argc, char* argv[])
 
   int i, j;
 
+  for (i = 0; i < samples; i++) {
+    for (j = 0; j < BANKS; j++) {
+      buffer[i*BANKS+j] = round(sin(i*inc)*5000000.0);
+    }
+  }
+  /*
   int sine = LARGEST_CHUNK_SIZE;
   
   for (i = 0; i < sine; i++) {
     for (j = 0; j < BANKS; j++) {
-      if (j == 6) {
+      if (j == 0) {
 	//	buffer[i*BANKS+j] = 5000000/(j+1);
-	buffer[i*BANKS+j] = 0;
+	buffer[i*BANKS+j] = 5000000;
       }
       else {
 	buffer[i*BANKS+j] = 0;
@@ -34,33 +41,36 @@ int main(int argc, char* argv[])
 
   for (i = sine; i < sine2; i++) {
     for (j = 0; j < BANKS; j++) {
-      if (j == 6) {
+      buffer[i*BANKS+j] = round(sin(i*inc)*5000000.0);
+
+//      if (j == 6) {
 	//	buffer[i*BANKS+j] = 5000000/(j+1);
-	buffer[i*BANKS+j] = round(sin(i*inc)*5000000.0);
-      }
-      else {
-	buffer[i*BANKS+j] = 0;
-      }
+		//}
+	//else {
+	//	buffer[i*BANKS+j] = 0;
+	//}
     }
   }
   
 
   for (i = sine2; i < samples; i++) {
     for (j = 0; j < BANKS; j++) {
-      if (j == 6) {
+      if (j == 0) {
 	//      buffer[i*BANKS+j] = round(sin(i*inc/(j+1))*5000000.0);
-	buffer[i*BANKS+j] = 5000000;
+	buffer[i*BANKS+j] = 0;
       }
       else {
 	buffer[i*BANKS+j] = 0;
       }
     }
   }
+  */
 
   long result = stop(0);
 
   printf("Stop result: %ld\n",result);
 
+  /*
   result = writeChannel(0,6,10000000);
 
   printf("Write result: %ld\n",result);
@@ -82,6 +92,8 @@ int main(int argc, char* argv[])
     errorString(result,err);
     printf("Write failed: %s\n",err);
   }
+
+  */
 
   result = query(0,200,0);
   printf("Number of channels: %ld\n",result);

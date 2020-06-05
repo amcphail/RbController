@@ -140,6 +140,10 @@ class Ui_MainWindow(object):
 #        self.fPicture.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.fPicture.setGeometry(400,50,512,512)
         self.fPicture.setObjectName("fPicture")
+        self.fImageSelect = ImageSelect(self.fPicture,self.tbRunTab)
+        self.fImageSelect.setGeometry(300,50,100,300)
+        self.fImageSelect.setObjectName("fImageSelect")
+
 #        self.fPicture.loadFile('/home/lab/mydata/Programming/RBController/default.fit')
         
         self.tbMain.addTab(self.tbRunTab, "")
@@ -533,27 +537,24 @@ class Ui_MainWindow(object):
         data = inputFile.read()
         inputFile.close()
 
-        try:
+        while len(data) > 0:
             
-            while len(data) > 0:
+            data = eatWhiteSpace(data)
             
-                data = eatWhiteSpace(data)
+            self.modules[self.num_modules] = moduleForm(self.num_modules,self,self.hlwChannelsContents)
+            data = stringToModule(data,self.modules[self.num_modules])
+
+            self.modules[self.num_modules].show()
             
-                self.modules[self.num_modules] = moduleForm(self.num_modules,self,self.hlwChannelsContents)
-                data = stringToModule(data,self.modules[self.num_modules])
-                self.modules[self.num_modules].show()
-            
-                self.gloChannelsContents.addWidget(self.modules[self.num_modules])
+            self.gloChannelsContents.addWidget(self.modules[self.num_modules])
       
-                self.num_modules += 1
+            self.num_modules += 1
 
-                data = eatWhiteSpace(data)
-        
-            self.doLayout()
+        self.doLayout()
 
-        except:
-            error_dialog = QtWidgets.QErrorMessage()
-            error_dialog.showMessage('Could not load Module file')
+        #except:
+        #    error_dialog = QtWidgets.QErrorMessage()
+        #    error_dialog.showMessage('Could not load Module file')
         
     def run(self):
         
@@ -575,6 +576,16 @@ class Ui_MainWindow(object):
                 buffer.extend(map(ord,command))
                 s.send(buffer)
                 s.recv(5)
+                s.close()
+
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.connect((address, port))
+                
+                buffer = bytearray()
+                buffer.extend(map(ord,"EXPT"))
+                s.send(buffer)
+                result = s.recv(1)
+                print("Got: ",result," from EXPT")
                 s.close()   
 
         try:
@@ -811,6 +822,6 @@ class Ui_MainWindow(object):
             group = layoutGroups[ii]
             for jj in group:
                 output += self.modules[jj.index].toString()
-                output += '\n'
+                output += 'END\n\n'
                 
         return output

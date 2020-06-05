@@ -130,6 +130,107 @@ class MouseGraphicsView(QtWidgets.QGraphicsView):
         pos = self.mapToScene(event.pos())
         self.statusEvent.emit(pos)
 
+class ImageSelect(QtWidgets.QWidget):
+    def __init__(self, picture, parent = None):
+        super(ImageSelect,self).__init__(parent)
+
+        self.picture = picture
+
+        self.parent = parent
+
+        self.gbImageOptions = QtWidgets.QGroupBox(parent)
+        self.gbImageOptions.setGeometry(QtCore.QRect(250, 100, 120, 211))
+        self.gbImageOptions.setObjectName("gbImageOptions")
+        self.verticalLayoutWidget = QtWidgets.QWidget(self.gbImageOptions)
+        self.verticalLayoutWidget.setGeometry(QtCore.QRect(0, 20, 157, 151))
+        self.verticalLayoutWidget.setObjectName("verticalLayoutWidget")
+        self.verticalLayout = QtWidgets.QVBoxLayout(self.verticalLayoutWidget)
+        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout.setObjectName("verticalLayout")
+        self.rbImage = QtWidgets.QRadioButton(self.verticalLayoutWidget)
+        self.rbImage.setObjectName("rbImage")
+        self.verticalLayout.addWidget(self.rbImage)
+        self.rbData = QtWidgets.QRadioButton(self.verticalLayoutWidget)
+        self.rbData.setObjectName("rbData")
+        self.verticalLayout.addWidget(self.rbData)
+        self.rbNoAtoms = QtWidgets.QRadioButton(self.verticalLayoutWidget)
+        self.rbNoAtoms.setObjectName("rbNoAtoms")
+        self.verticalLayout.addWidget(self.rbNoAtoms)
+        self.rbNoLaser = QtWidgets.QRadioButton(self.verticalLayoutWidget)
+        self.rbNoLaser.setObjectName("rbNoLaser")
+        self.verticalLayout.addWidget(self.rbNoLaser)
+        self.rbCorrectBackground = QtWidgets.QRadioButton(self.verticalLayoutWidget)
+        self.rbCorrectBackground.setObjectName("rbCorrectBackground")
+        self.verticalLayout.addWidget(self.rbCorrectBackground)
+        self.cbFilter = QtWidgets.QCheckBox(self.gbImageOptions)
+        self.cbFilter.setGeometry(QtCore.QRect(0, 180, 90, 23))
+        self.cbFilter.setObjectName("cbFilter")
+        self.cbShadow = QtWidgets.QCheckBox(parent)
+        self.cbShadow.setGeometry(QtCore.QRect(250, 50, 90, 23))
+        self.cbShadow.setObjectName("cbShadow")
+
+        self.rbImage.setChecked(True)
+        self.picture.PicShow = 1
+        self.cbShadow.setChecked(False)
+        self.rbNoLaser.setEnabled(False)
+        self.rbCorrectBackground.setEnabled(False)
+
+        self.retranslateUi()
+        self.cbShadow.toggled.connect(self.setShadow)
+        self.rbImage.toggled.connect(self.setImage)
+        self.rbData.toggled.connect(self.setAtoms)
+        self.rbNoAtoms.toggled.connect(self.setNoAtoms)
+        self.rbNoLaser.toggled.connect(self.setNoLaser)
+        self.rbCorrectBackground.toggled.connect(self.setBackground)
+        QtCore.QMetaObject.connectSlotsByName(self)
+
+    def retranslateUi(self):
+        _translate = QtCore.QCoreApplication.translate
+        self.setWindowTitle(_translate("self", "self"))
+        self.gbImageOptions.setTitle(_translate("self", "Image Options"))
+        self.rbImage.setText(_translate("self", "Image"))
+        self.rbData.setText(_translate("self", "Atoms"))
+        self.rbNoAtoms.setText(_translate("self", "No Atoms"))
+        self.rbNoLaser.setText(_translate("self", "No Laser"))
+        self.rbCorrectBackground.setText(_translate("self", "Background"))
+        self.cbFilter.setText(_translate("self", "Filter"))
+        self.cbShadow.setText(_translate("self", "Shadow"))
+
+    def setShadow(self,state):
+        self.picture.IsShadow = state
+
+        if not state:
+            self.rbNoLaser.setEnabled(False)
+            self.rbCorrectBackground.setEnabled(False)
+        else:
+            self.rbNoLaser.setEnabled(True)
+            self.rbCorrectBackground.setEnabled(True)
+
+    def setImage(self,state):
+        if state:
+            self.picture.PicShow = 1
+            self.picture.plot()
+
+    def setAtoms(self,state):
+        if state:
+            self.picture.PicShow = 2
+            self.picture.plot()
+
+    def setNoAtoms(self,state):
+        if state:
+            self.picture.PicShow = 3
+            self.picture.plot()
+
+    def setNoLaser(self,state):
+        if state:
+            self.picture.PicShow = 4
+            self.picture.plot()
+
+    def setBackground(self,state):
+        if state:
+            self.picture.PicShow = 5
+            self.picture.plot()
+
 class Picture(QtWidgets.QWidget):
     def __init__(self, xs=512, ys=512, dpi=90, parent=None):
         super(Picture,self).__init__(parent)
@@ -260,11 +361,17 @@ class Picture(QtWidgets.QWidget):
                 t1 = self.data
                             
             else:
-                t1 = self.data-self.noAtoms
-                intfluo = intfluo + t1
+                if self.PicShow == 1:
+                    t1 = self.data - self.noAtoms
+                elif self.PicShow == 2:
+                    t1 = self.data
+                elif self.PicShow == 3:
+                    t1 = self.noAtoms
+                #intfluo = intfluo + t1
                     
             self.Display=t1
-                    
+            self.Display[self.Display < 0] = 0
+
         else:
             MaxVal = scale
             MinVal = 2000

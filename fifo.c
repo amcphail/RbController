@@ -50,12 +50,14 @@ long config(int card, unsigned long samples, long* data)
 {
   if (card != 0) return -1;
 
+  long continuous;
+
   long result = EDRE_DAConfig(SnDAC0,63,FREQUENCY,0,1,0,samples*BANKS,data);
 
-  /*
   int i, j;
 
-  for (i = 0; i < samples; i++) {
+  /*
+    for (i = 0; i < samples; i++) {
     for (j = 0; j < BANKS; j++) {
       printf("%d\t",data[i*BANKS+j]);
     }
@@ -123,7 +125,9 @@ void* doRun(void* arguments)
     size = LARGEST_CHUNK_SIZE/BANKS;
   }
   
-  size = (size / BANKS) * BANKS;
+  //size = (size / BANKS) * BANKS;
+
+  printf("Size: %d.\n",size);
   
   long result = stop(args->card);
 
@@ -164,7 +168,7 @@ void* doRun(void* arguments)
 
   while (cursor < args->samples*BANKS) {
     
-    printf("fifo.so: doRun(), while loop.\n");
+    printf("fifo.so: doRun(), while loop: cursor: %d\tsamples: %d.\n",cursor,args->samples);
 
 
     nanosleep(&tim_req,&tim_res);
